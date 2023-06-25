@@ -1,5 +1,4 @@
 const mongoose = require('mongoose');
-const { Comment, commentSchema } = require('./Comment');
 
 const postSchema = new mongoose.Schema({
     title: {
@@ -13,10 +12,15 @@ const postSchema = new mongoose.Schema({
         required: true,
     },
     author: {
-        type: String,
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
         required: true,
     },
-    comments: [commentSchema],
+    group: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Group',
+        required: true,
+    },
 });
 
 const Post = mongoose.model('Post', postSchema);

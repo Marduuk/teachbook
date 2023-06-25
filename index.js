@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const app = express();
 const postRoutes = require('./routes/postRoutes');
 const userRoutes = require('./routes/userRoutes');
+const groupRoutes = require('./routes/groupRoutes');
 const cors = require('cors');
 const session = require('express-session');
 
@@ -37,6 +38,7 @@ app.use(session({
 
 app.use('/', postRoutes);
 app.use('/', userRoutes);
+app.use('/', groupRoutes);
 app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Headers', '*');

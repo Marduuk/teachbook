@@ -1,67 +1,57 @@
-const Post = require("../models/Post");
 const express = require('express');
 const router = express.Router();
-const mongoose = require('mongoose');
+const User = require('../models/User');
+const Group = require('../models/Group');
+const Post = require('../models/Post');
 
-router.get('/posts', async (req, res) => {
-    const posts = await Post.find();
-    res.send(posts);
-});
+router.post('/groups/:groupId/posts', async (req, res) => {
+    const token = req.header('Authorization')
+    let cleanedToken = token.replace("Bearer ", "");
+    const user = await User.findOne({ token: cleanedToken });
 
-router.post('/posts', async (req, res) => {
-    const newPost = new Post(req.body);
-    try {
-        const savedPost = await newPost.save();
-        res.send(savedPost);
-    } catch (error) {
-        res.status(400).send(error.message);
+    if (user === null) {
+        return res.status(400).json({message: 'Incorrect token'});
     }
-});
 
-router.post('/posts/:id/comments', async (req, res) => {
-    const post = await Post.findById(req.params.id);
-    const comment = new mongoose.model('Comment', commentSchema)(req.body);
+
+    const groupId = req.params.groupId;
+    const { title, content } = req.body;
+
+    const authorId = user.id
     try {
-        await comment.validate();
-        post.comments.push(comment);
-        const updatedPost = await post.save();
-        res.send(updatedPost);
-    } catch (error) {
-        res.status(400).send(error.message);
-    }
-});
-
-router.get('/posts/:id/comments', async (req, res) => {
-    const post = await Post.findById(req.params.id);
-    res.send(post.comments);
-});
-router.get('/posts/:id', async (req, res) => {
-    const post = await Post.findById(req.params.id);
-    res.send(post);
-});
-
-router.put('/posts/:id', async (req, res) => {
-    try {
-        const post = await Post.findById(req.params.id);
-        post.set(req.body);
-        const updatedPost = await post.save();
-        res.send(updatedPost);
-    } catch (error) {
-        res.status(400).send(error.message);
-    }
-});
-
-router.delete('/posts/:id', async (req, res) => {
-    try {
-        const deletedPost = await Post.findByIdAndDelete(req.params.id);
-        if (deletedPost) {
-            res.send(deletedPost);
-        } else {
-            res.status(404).send('Post not found');
+        const group = await Group.findById(groupId);
+        if (!group.members.includes(authorId)) {
+            return res.status(400).json({message: 'You must be a member of the group to post'});
         }
-    } catch (error) {
-        res.status(500).send(error.message);
+
+        const post = new Post({ title, content, author: authorId, group: groupId });
+        await post.save();
+
+        group.posts.push(post._id);
+        await group.save();
+
+        res.status(201).json({message: 'Post successfully created', post: post});
+
+    } catch (err) {
+        return res.status(500).json({message: 'Something went baaaad', err});
     }
 });
+
+
+router.get('/groups/:groupId/posts', async (req, res) => {
+    const groupId = req.params.groupId;
+
+    try {
+        const posts = await Post.find({ group: groupId }).populate('author', 'username');
+        res.status(201).json({message: 'Posts fetched successfully', post: posts});
+    } catch (err) {
+        return res.status(500).json({message: 'Something went baaaad', err});
+    }
+});
+
+
+
+
+
 
 module.exports = router;
