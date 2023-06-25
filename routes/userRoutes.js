@@ -2,81 +2,136 @@ const express = require('express');
 const router = express.Router();
 const User = require('../models/User');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
+
+
 
 router.post('/register', async (req, res) => {
+    console.log(req.body)
+
     const { name, username, password } = req.body;
+
 
     let user = await User.findOne({ username });
 
     if (user) {
-        return res.status(400).send('User with this username already exists');
+        return res.status(400).json({message: 'User with this username already exists'});
     }
 
-    user = new User({ name, username, password });
+    const token =  crypto.randomBytes(27).toString('hex')
+    user = new User({ name, username, password, token });
 
     try {
         await user.save();
-        res.status(201).send('User registered successfully');
+        res.status(201).json({message: 'User registered successfully'});
     } catch (error) {
-        res.status(500).send(error.message);
+        res.status(500).json({message: error.message});
     }
 });
 
 router.post('/login', async (req, res) => {
+
     const { username, password } = req.body;
 
     const user = await User.findOne({ username });
 
-    if (!user) {
-        return res.status(400).send('Invalid username');
+    if (!password) {
+        return res.status(400).json({message: 'No password sent'});
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    if (!user) {
+        var dua = 'jakiestamrandomowehaslo'
+    } else {
+        var dua = user.password;
+    }
+
+    const isMatch = await bcrypt.compare(password, dua);
 
     if (!isMatch) {
-        return res.status(400).send('Invalid password');
+        return res.status(400).json({message: 'Invalid password or username'});
     }
 
-    req.session.username = username;
-
-    res.send('User logged in successfully');
+    const tokenik = user.token
+    console.log(tokenik)
+    res.json({ message: 'User logged in successfully',  token: tokenik });
 });
 
-router.get('/show/:username', async (req, res) => {
-    const { username } = req.params;
+// router.get('/show/:username', async (req, res) => {
+//     const { username } = req.params;
+//
+//     const user = await User.findOne({ username });
+//
+//     if (!user) {
+//         return res.status(404).json({message: 'User not found'});
+//     }
+//
+//     res.send(user);
+// });
 
-    const user = await User.findOne({ username });
+router.get('/show/me', async (req, res) => {
 
-    if (!user) {
-        return res.status(404).send('User not found');
+    const token = req.header('Authorization')
+    if (!token) {
+        return res.status(400).json({message: 'No token sent'});
     }
+    let cleanedToken = token.replace("Bearer ", "");
+
+
+    const user = await User.findOne({ token: cleanedToken });
+
+    console.log(user)
+    console.log(cleanedToken)
+    if (!user){
+        return res.status(401).json({message: 'Unauthorized'});
+    }
+
 
     res.send(user);
 });
 
 
-router.put('/edit/:username', async (req, res) => {
-    const { username } = req.params;
-    const updates = req.body;
+router.put('/edit/me', async (req, res) => {
 
-    if (req.session.username !== username) {
-        return res.status(403).send('You do not have permission to update this user');
+    const token = req.header('Authorization')
+    const { name, username, password } = req.body;
+
+    if (!token) {
+        return res.status(400).json({message: 'No token sent'});
+    }
+    let cleanedToken = token.replace("Bearer ", "");
+
+
+
+
+    const user = await User.findOne({ token: cleanedToken });
+
+    if (!user) {
+        return res.status(403).json({message: 'You do not have permission to update this user'});
     }
 
+    console.log(name)
     try {
-        if (updates.password) {
-            updates.password = await bcrypt.hash(updates.password, 10);
-        }
 
-        const user = await User.findOneAndUpdate({ username }, updates, { new: true });
+        if (name) {
+            console.log('midziala')
+            user.name = name;
+        }
+        if (username) {
+            user.username = username;
+        }
 
         if (!user) {
-            return res.status(404).send('User not found');
+            return res.status(404).json({message: 'User not found'});
         }
+        const userNew = await user.save()
 
-        res.send(user);
+        console.log('yeyyeye')
+        console.log(userNew)
+
+        res.json({ message: 'User editted',  user: userNew });
+
     } catch (error) {
-        res.status(500).send(error.message);
+        res.json({ message: 'Wyjebalo sie',  error: error.message });
     }
 });
 
