@@ -101,8 +101,6 @@ router.put('/edit/me', async (req, res) => {
     let cleanedToken = token.replace("Bearer ", "");
 
 
-
-
     const user = await User.findOne({ token: cleanedToken });
 
     if (!user) {
